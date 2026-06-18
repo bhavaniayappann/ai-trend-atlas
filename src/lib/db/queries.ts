@@ -6,6 +6,11 @@ import {
   seedTopics,
   seedTrendScores,
 } from "@/lib/data/seed";
+import {
+  mergeCustomTopicsIntoGalaxy,
+  mergeCustomTopicsIntoTrends,
+  mergeCustomTopicsList,
+} from "@/lib/data/custom-topics-store";
 import { getSupabase, isSupabaseConfigured } from "@/lib/db/supabase";
 import type { GalaxyData, Insight, RiverDataPoint, Topic, TrendScore } from "@/lib/types";
 
@@ -17,7 +22,7 @@ function getJoinedTopic(topics: unknown): { slug: string; label: string } | null
 }
 
 export async function getGalaxyData(): Promise<GalaxyData> {
-  if (!isSupabaseConfigured()) return getSeedGalaxyData();
+  if (!isSupabaseConfigured()) return mergeCustomTopicsIntoGalaxy(getSeedGalaxyData());
 
   const supabase = getSupabase()!;
   const { data: topics } = await supabase.from("topics").select("*");
@@ -89,7 +94,7 @@ export async function getRiverData(): Promise<RiverDataPoint[]> {
 }
 
 export async function getTrendingTopics(limit = 8): Promise<TrendScore[]> {
-  if (!isSupabaseConfigured()) return getTopTrends(limit);
+  if (!isSupabaseConfigured()) return mergeCustomTopicsIntoTrends(getTopTrends(limit), limit);
 
   const supabase = getSupabase()!;
   const { data } = await supabase
@@ -150,7 +155,7 @@ export async function getInsights(): Promise<Insight[]> {
 }
 
 export async function getAllTopics(): Promise<Topic[]> {
-  if (!isSupabaseConfigured()) return seedTopics;
+  if (!isSupabaseConfigured()) return mergeCustomTopicsList(seedTopics);
 
   const supabase = getSupabase()!;
   const { data } = await supabase.from("topics").select("*").order("label");
@@ -166,7 +171,7 @@ export async function getStats() {
     : 0;
 
   return {
-    totalTopics: isSupabaseConfigured() ? trends.length : seedTopics.length,
+    totalTopics: isSupabaseConfigured() ? trends.length : mergeCustomTopicsList(seedTopics).length,
     totalMentions,
     emergingTrends: emerging,
     avgSentiment,

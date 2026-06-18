@@ -35,6 +35,14 @@ export interface Topic {
   description: string | null;
   lifecycle: LifecycleStage;
   created_at: string;
+  is_custom?: boolean;
+  keywords?: string[];
+}
+
+export interface CreateTopicInput {
+  label: string;
+  description?: string;
+  keywords?: string[];
 }
 
 export interface TrendScore {

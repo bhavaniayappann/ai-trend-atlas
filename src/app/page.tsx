@@ -3,13 +3,15 @@ import { Header } from "@/components/layout/Header";
 import { StatsBar } from "@/components/dashboard/StatsBar";
 import { TrendCard } from "@/components/dashboard/TrendCard";
 import { InsightFeed } from "@/components/dashboard/InsightFeed";
-import { getTrendingTopics, getInsights, getStats } from "@/lib/db/queries";
+import { AddTopicForm } from "@/components/dashboard/AddTopicForm";
+import { getTrendingTopics, getInsights, getStats, getAllTopics } from "@/lib/db/queries";
 
 export default async function DashboardPage() {
-  const [trends, insights, stats] = await Promise.all([
+  const [trends, insights, stats, topics] = await Promise.all([
     getTrendingTopics(8),
     getInsights(),
     getStats(),
+    getAllTopics(),
   ]);
 
   return (
@@ -33,8 +35,9 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-6">
             <InsightFeed insights={insights} />
+            <AddTopicForm topics={topics} />
           </div>
         </div>
       </div>

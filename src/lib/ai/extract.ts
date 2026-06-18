@@ -1,6 +1,7 @@
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
+import { getCustomTopicKeywordMap } from "@/lib/data/custom-topics-store";
 import type { Sentiment } from "@/lib/types";
 
 const analysisSchema = z.object({
@@ -49,6 +50,7 @@ function fallbackExtraction(title: string, body: string | null): ContentAnalysis
     continue: ["continue.dev", "continue dev"],
     langgraph: ["langgraph", "langchain"],
     "vibe-coding": ["vibe coding", "vibe-coding"],
+    ...getCustomTopicKeywordMap(),
   };
 
   const topics: string[] = [];
