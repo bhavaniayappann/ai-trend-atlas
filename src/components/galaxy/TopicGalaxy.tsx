@@ -232,47 +232,57 @@ export function TopicGalaxy({ data }: TopicGalaxyProps) {
 
   return (
     <div ref={containerRef} className="relative h-full w-full">
-      <canvas ref={canvasRef} className="h-full w-full touch-none" />
-
-      {activeNode && (
-        <div className="pointer-events-none absolute right-4 top-4 w-64 rounded-lg border border-border bg-surface/95 p-4 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <span
-              className="h-3 w-3 rounded-full"
-              style={{ backgroundColor: lifecycleColor(activeNode.lifecycle) }}
-            />
-            <h3 className="font-semibold text-foreground">{activeNode.label}</h3>
-          </div>
-          <p className="mt-1 text-xs capitalize text-muted">{activeNode.lifecycle}</p>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <p className="text-muted">Velocity</p>
-              <p className="font-mono text-accent">{activeNode.velocity.toFixed(1)}%</p>
-            </div>
-            <div>
-              <p className="text-muted">Mentions</p>
-              <p className="font-mono text-foreground">{formatNumber(activeNode.mention_count)}</p>
-            </div>
-            <div>
-              <p className="text-muted">Reach</p>
-              <p className="font-mono text-foreground">{activeNode.reach} platforms</p>
-            </div>
-            <div>
-              <p className="text-muted">Cluster</p>
-              <p className="text-foreground">{activeNode.group}</p>
-            </div>
-          </div>
+      {!data.nodes.length ? (
+        <div className="flex h-full items-center justify-center p-6">
+          <p className="max-w-sm text-center text-sm text-muted">
+            No tracked topics yet. Add custom topics on the Dashboard to see them here.
+          </p>
         </div>
-      )}
+      ) : (
+        <>
+          <canvas ref={canvasRef} className="h-full w-full touch-none" />
 
-      <div className="pointer-events-none absolute bottom-4 left-4 flex gap-3 rounded-lg border border-border bg-surface/90 px-3 py-2 text-xs backdrop-blur-sm">
-        {(["emerging", "growing", "peak", "declining"] as const).map((stage) => (
-          <div key={stage} className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: lifecycleColor(stage) }} />
-            <span className="capitalize text-muted">{stage}</span>
+          {activeNode && (
+            <div className="pointer-events-none absolute right-4 top-4 w-64 rounded-lg border border-border bg-surface/95 p-4 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: lifecycleColor(activeNode.lifecycle) }}
+                />
+                <h3 className="font-semibold text-foreground">{activeNode.label}</h3>
+              </div>
+              <p className="mt-1 text-xs capitalize text-muted">{activeNode.lifecycle}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <p className="text-muted">Velocity</p>
+                  <p className="font-mono text-accent">{activeNode.velocity.toFixed(1)}%</p>
+                </div>
+                <div>
+                  <p className="text-muted">Mentions</p>
+                  <p className="font-mono text-foreground">{formatNumber(activeNode.mention_count)}</p>
+                </div>
+                <div>
+                  <p className="text-muted">Reach</p>
+                  <p className="font-mono text-foreground">{activeNode.reach} platforms</p>
+                </div>
+                <div>
+                  <p className="text-muted">Cluster</p>
+                  <p className="text-foreground">{activeNode.group}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="pointer-events-none absolute bottom-4 left-4 flex gap-3 rounded-lg border border-border bg-surface/90 px-3 py-2 text-xs backdrop-blur-sm">
+            {(["emerging", "growing", "peak", "declining"] as const).map((stage) => (
+              <div key={stage} className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: lifecycleColor(stage) }} />
+                <span className="capitalize text-muted">{stage}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 }

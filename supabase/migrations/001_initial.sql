@@ -50,6 +50,8 @@ create table if not exists topics (
   label text not null,
   description text,
   lifecycle text not null default 'emerging' check (lifecycle in ('emerging', 'growing', 'peak', 'declining', 'dormant')),
+  is_custom boolean not null default false,
+  keywords text[] not null default '{}',
   created_at timestamptz default now()
 );
 
@@ -128,3 +130,26 @@ as $$
   order by e.embedding <=> query_embedding
   limit match_count;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Row Level Security (RLS)
+-- This app uses SUPABASE_SERVICE_ROLE_KEY on the server only (bypasses RLS).
+-- Enabling RLS locks tables from anon/authenticated client keys.
+-- ---------------------------------------------------------------------------
+
+alter table content enable row level security;
+alter table content_analysis enable row level security;
+alter table embeddings enable row level security;
+alter table topics enable row level security;
+alter table topic_mentions enable row level security;
+alter table clusters enable row level security;
+alter table trend_scores enable row level security;
+alter table insights enable row level security;
+
+-- No public policies: deny all access via anon/authenticated keys.
+-- Server-side API routes use the service_role key and are unaffected.
+
+-- Restrict the semantic search RPC to server-side use only
+revoke all on function match_content(vector, float, int) from public;
+revoke all on function match_content(vector, float, int) from anon;
+revoke all on function match_content(vector, float, int) from authenticated;

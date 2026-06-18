@@ -5,11 +5,20 @@ import { fetchTrendingAIRepos, githubRepoToContent } from "@/lib/sources/github"
 import { extractTopics } from "@/lib/ai/extract";
 import { generateEmbedding } from "@/lib/ai/embeddings";
 import { getSupabase, isSupabaseConfigured } from "@/lib/db/supabase";
+import { matchCustomTopicSlugs, listCustomTopics } from "@/lib/db/topics";
+import { recalculateAndPersistTrendScores } from "@/lib/db/trend-scores";
+import { backfillCustomTopicMentions } from "@/lib/db/backfill";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  if (
+    isProduction &&
+    process.env.CRON_SECRET &&
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -39,6 +48,8 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabase()!;
+    const customTopics = await listCustomTopics();
+    const customTopicBySlug = new Map(customTopics.map((t) => [t.slug, t]));
 
     for (const item of items) {
       try {
@@ -63,9 +74,13 @@ export async function POST(request: Request) {
         }
 
         const analysis = await extractTopics(item.title, item.body);
+        const customMatches = await matchCustomTopicSlugs(item.title, item.body);
+        const allTopicSlugs = [...new Set([...analysis.topics, ...customMatches])];
+
         await supabase.from("content_analysis").insert({
           content_id: content.id,
           ...analysis,
+          topics: allTopicSlugs,
         });
 
         const embedding = await generateEmbedding(`${item.title} ${item.body ?? ""}`);
@@ -74,7 +89,17 @@ export async function POST(request: Request) {
           embedding,
         });
 
-        for (const topicSlug of analysis.topics) {
+        for (const topicSlug of allTopicSlugs) {
+          const existingCustom = customTopicBySlug.get(topicSlug);
+
+          if (existingCustom) {
+            await supabase.from("topic_mentions").upsert(
+              { content_id: content.id, topic_id: existingCustom.id, confidence: 0.95 },
+              { onConflict: "content_id,topic_id" }
+            );
+            continue;
+          }
+
           const { data: topic } = await supabase
             .from("topics")
             .upsert(
@@ -100,7 +125,15 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ message: "Ingestion complete", ...results });
+    const mentionsLinked = await backfillCustomTopicMentions();
+    const scoresUpdated = await recalculateAndPersistTrendScores();
+
+    return NextResponse.json({
+      message: "Ingestion complete",
+      mentionsLinked,
+      scoresUpdated,
+      ...results,
+    });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Ingestion failed" },

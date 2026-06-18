@@ -160,26 +160,36 @@ export function TrendRiver({ data }: TrendRiverProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div ref={containerRef} className="flex-1">
-        <svg ref={svgRef} className="h-full w-full" />
-      </div>
-
-      <div className="border-t border-border px-6 py-4">
-        <div className="flex items-center gap-4">
-          <span className="text-xs text-muted">Timeline</span>
-          <input
-            type="range"
-            min={0}
-            max={dates.length - 1}
-            defaultValue={dates.length - 1}
-            className="flex-1 accent-accent"
-            onChange={(e) => setScrubDate(dates[Number(e.target.value)] ?? null)}
-          />
-          <span className="font-mono text-xs text-accent">
-            {scrubDate ? format(parseISO(scrubDate), "MMM d, yyyy") : format(parseISO(dates[dates.length - 1]), "MMM d, yyyy")}
-          </span>
+      {!data.length ? (
+        <div className="flex flex-1 items-center justify-center p-6">
+          <p className="max-w-sm text-center text-sm text-muted">
+            No mention history for your tracked topics yet. Run ingest from the Dashboard after adding topics.
+          </p>
         </div>
-      </div>
+      ) : (
+        <>
+          <div ref={containerRef} className="flex-1">
+            <svg ref={svgRef} className="h-full w-full" />
+          </div>
+
+          <div className="border-t border-border px-6 py-4">
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-muted">Timeline</span>
+              <input
+                type="range"
+                min={0}
+                max={dates.length - 1}
+                defaultValue={dates.length - 1}
+                className="flex-1 accent-accent"
+                onChange={(e) => setScrubDate(dates[Number(e.target.value)] ?? null)}
+              />
+              <span className="font-mono text-xs text-accent">
+                {scrubDate ? format(parseISO(scrubDate), "MMM d, yyyy") : format(parseISO(dates[dates.length - 1]), "MMM d, yyyy")}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

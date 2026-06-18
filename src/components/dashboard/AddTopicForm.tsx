@@ -2,20 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Tag } from "lucide-react";
+import { Plus, Tag, CheckCircle2 } from "lucide-react";
 import type { Topic } from "@/lib/types";
 
 interface AddTopicFormProps {
   topics: Topic[];
 }
 
-export function AddTopicForm({ topics }: AddTopicFormProps) {
+export function AddTopicForm({ topics: initialTopics }: AddTopicFormProps) {
   const router = useRouter();
+  const [topics, setTopics] = useState(initialTopics);
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
   const [keywords, setKeywords] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const customTopics = topics.filter((t) => t.is_custom);
 
@@ -23,6 +25,7 @@ export function AddTopicForm({ topics }: AddTopicFormProps) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const res = await fetch("/api/topics", {
@@ -41,9 +44,16 @@ export function AddTopicForm({ topics }: AddTopicFormProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add topic");
 
+      const newTopic = data.topic as Topic;
+      setTopics((prev) => {
+        const without = prev.filter((t) => t.slug !== newTopic.slug);
+        return [newTopic, ...without];
+      });
+
       setLabel("");
       setDescription("");
       setKeywords("");
+      setSuccess(`Added "${newTopic.label}"`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -83,6 +93,12 @@ export function AddTopicForm({ topics }: AddTopicFormProps) {
           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent/50"
         />
         {error && <p className="text-xs text-red-400">{error}</p>}
+        {success && (
+          <p className="flex items-center gap-1 text-xs text-emerald-400">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {success}
+          </p>
+        )}
         <button
           type="submit"
           disabled={loading || !label.trim()}
@@ -95,7 +111,7 @@ export function AddTopicForm({ topics }: AddTopicFormProps) {
 
       {customTopics.length > 0 && (
         <div className="mt-4 space-y-2">
-          <p className="text-xs font-medium text-muted">Your topics</p>
+          <p className="text-xs font-medium text-muted">Your topics ({customTopics.length})</p>
           {customTopics.map((topic) => (
             <div
               key={topic.id}

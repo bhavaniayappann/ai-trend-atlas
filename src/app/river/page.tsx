@@ -3,6 +3,8 @@ import { Header } from "@/components/layout/Header";
 import { TrendRiver } from "@/components/river/TrendRiver";
 import { getRiverData } from "@/lib/db/queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function RiverPage() {
   const data = await getRiverData();
 
@@ -10,7 +12,7 @@ export default async function RiverPage() {
     <AppShell>
       <Header
         title="Trend River"
-        description="Flowing visualization of how topics evolve over time"
+        description="Mention volume over time for your tracked topics"
       />
       <div className="flex-1">
         <TrendRiver data={data} />

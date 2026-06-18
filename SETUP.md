@@ -14,6 +14,12 @@
 3. Copy the entire contents of `supabase/migrations/001_initial.sql` from this repo
 4. Paste into the editor and click **Run**
 
+> **Supabase RLS warning:** If you see *"This query creates tables without enabling Row Level Security"*, click **Run this query** (or enable RLS). The migration now enables RLS at the end. This is the correct choice — it blocks public access while your server API (using `service_role`) continues to work.
+
+If you already ran the old migration without RLS, run `supabase/migrations/002_enable_rls.sql` instead.
+
+If custom topics aren't saving, run `supabase/migrations/003_custom_topic_fields.sql` to add the `is_custom` and `keywords` columns.
+
 This creates all tables (`content`, `topics`, `embeddings`, `trend_scores`, etc.) and enables **pgvector** for semantic search.
 
 ### Step 3: Get your API keys

@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
-import { getCustomTopicKeywordMap } from "@/lib/data/custom-topics-store";
+import { getTopicKeywordsForExtraction } from "@/lib/db/topics";
 import type { Sentiment } from "@/lib/types";
 
 const analysisSchema = z.object({
@@ -12,6 +12,20 @@ const analysisSchema = z.object({
 });
 
 export type ContentAnalysisResult = z.infer<typeof analysisSchema>;
+
+const BASE_TOPIC_KEYWORDS: Record<string, string[]> = {
+  mcp: ["mcp", "model context protocol"],
+  "claude-code": ["claude code", "claude-code"],
+  cursor: ["cursor"],
+  "ai-agents": ["ai agent", "agents", "agentic"],
+  windsurf: ["windsurf", "codeium"],
+  rag: ["rag", "retrieval-augmented"],
+  "graph-rag": ["graph rag", "knowledge graph"],
+  aider: ["aider"],
+  continue: ["continue.dev", "continue dev"],
+  langgraph: ["langgraph", "langchain"],
+  "vibe-coding": ["vibe coding", "vibe-coding"],
+};
 
 export async function extractTopics(
   title: string,
@@ -36,22 +50,13 @@ Use lowercase slug-style topic names (e.g. "mcp", "claude-code", "ai-agents").`,
   return object;
 }
 
-function fallbackExtraction(title: string, body: string | null): ContentAnalysisResult {
+async function fallbackExtraction(
+  title: string,
+  body: string | null
+): Promise<ContentAnalysisResult> {
   const text = `${title} ${body ?? ""}`.toLowerCase();
-  const topicMap: Record<string, string[]> = {
-    mcp: ["mcp", "model context protocol"],
-    "claude-code": ["claude code", "claude-code"],
-    cursor: ["cursor"],
-    "ai-agents": ["ai agent", "agents", "agentic"],
-    windsurf: ["windsurf", "codeium"],
-    rag: ["rag", "retrieval-augmented"],
-    "graph-rag": ["graph rag", "knowledge graph"],
-    aider: ["aider"],
-    continue: ["continue.dev", "continue dev"],
-    langgraph: ["langgraph", "langchain"],
-    "vibe-coding": ["vibe coding", "vibe-coding"],
-    ...getCustomTopicKeywordMap(),
-  };
+  const customKeywords = await getTopicKeywordsForExtraction();
+  const topicMap = { ...BASE_TOPIC_KEYWORDS, ...customKeywords };
 
   const topics: string[] = [];
   for (const [slug, keywords] of Object.entries(topicMap)) {

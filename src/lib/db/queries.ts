@@ -1,17 +1,17 @@
 import {
-  getSeedGalaxyData,
   getSeedRiverData,
   getTopTrends,
   seedInsights,
   seedTopics,
   seedTrendScores,
 } from "@/lib/data/seed";
-import {
-  mergeCustomTopicsIntoGalaxy,
-  mergeCustomTopicsIntoTrends,
-  mergeCustomTopicsList,
-} from "@/lib/data/custom-topics-store";
+import { getCustomTopics, getCustomTrendScores, mergeCustomTopicsIntoTrends } from "@/lib/data/custom-topics-store";
 import { getSupabase, isSupabaseConfigured } from "@/lib/db/supabase";
+import { listCustomTopics, normalizeTopic } from "@/lib/db/topics";
+import {
+  getComputedTrendScores,
+  getDailyRiverScores,
+} from "@/lib/db/trend-scores";
 import type { GalaxyData, Insight, RiverDataPoint, Topic, TrendScore } from "@/lib/types";
 
 function getJoinedTopic(topics: unknown): { slug: string; label: string } | null {
@@ -21,111 +21,84 @@ function getJoinedTopic(topics: unknown): { slug: string; label: string } | null
   return { slug: t.slug, label: t.label };
 }
 
-export async function getGalaxyData(): Promise<GalaxyData> {
-  if (!isSupabaseConfigured()) return mergeCustomTopicsIntoGalaxy(getSeedGalaxyData());
+function buildGalaxyNodes(topics: Topic[], scores: TrendScore[]): GalaxyData["nodes"] {
+  const scoreMap = new Map(scores.map((s) => [s.topic_slug, s]));
 
-  const supabase = getSupabase()!;
-  const { data: topics } = await supabase.from("topics").select("*");
-  const { data: scores } = await supabase
-    .from("trend_scores")
-    .select("*, topics(slug, label)")
-    .order("date", { ascending: false })
-    .limit(500);
-
-  if (!topics?.length || !scores?.length) return getSeedGalaxyData();
-
-  const latestScores = new Map<string, TrendScore>();
-  for (const s of scores) {
-    const topic = getJoinedTopic(s.topics);
-    if (!topic || latestScores.has(topic.slug)) continue;
-    latestScores.set(topic.slug, {
-      id: s.id,
-      topic_id: s.topic_id,
-      topic_slug: topic.slug,
-      topic_label: topic.label,
-      date: s.date,
-      velocity: s.velocity,
-      momentum: s.momentum,
-      persistence: s.persistence,
-      reach: s.reach,
-      sentiment: s.sentiment,
-      mention_count: s.mention_count,
-    });
-  }
-
-  const nodes = topics.map((t: Topic) => {
-    const score = latestScores.get(t.slug);
+  return topics.map((topic) => {
+    const score = scoreMap.get(topic.slug);
     return {
-      id: t.id,
-      label: t.label,
-      slug: t.slug,
-      group: "Topics",
-      lifecycle: t.lifecycle,
+      id: topic.id,
+      label: topic.label,
+      slug: topic.slug,
+      group: "Custom",
+      lifecycle: topic.lifecycle,
       velocity: score?.velocity ?? 0,
-      reach: score?.reach ?? 1,
+      reach: score?.reach ?? 0,
       mention_count: score?.mention_count ?? 0,
     };
   });
+}
 
-  return { nodes, edges: getSeedGalaxyData().edges };
+export async function getGalaxyData(): Promise<GalaxyData> {
+  if (!isSupabaseConfigured()) {
+    const customTopics = getCustomTopics();
+    return {
+      nodes: buildGalaxyNodes(customTopics, getCustomTrendScores()),
+      edges: [],
+    };
+  }
+
+  const customTopics = await listCustomTopics();
+  if (!customTopics.length) return { nodes: [], edges: [] };
+
+  const scores = await getComputedTrendScores();
+  return {
+    nodes: buildGalaxyNodes(customTopics, scores),
+    edges: [],
+  };
 }
 
 export async function getRiverData(): Promise<RiverDataPoint[]> {
-  if (!isSupabaseConfigured()) return getSeedRiverData();
+  if (!isSupabaseConfigured()) {
+    const customSlugs = new Set(getCustomTopics().map((t) => t.slug));
+    if (!customSlugs.size) return [];
 
-  const supabase = getSupabase()!;
-  const { data } = await supabase
-    .from("trend_scores")
-    .select("date, mention_count, topics(slug, label)")
-    .order("date", { ascending: true })
-    .limit(2000);
+    return getSeedRiverData().filter((p) => customSlugs.has(p.topic_slug));
+  }
 
-  if (!data?.length) return getSeedRiverData();
+  const customTopics = await listCustomTopics();
+  if (!customTopics.length) return [];
 
-  return data.map((d) => {
-    const topic = getJoinedTopic(d.topics);
-    return {
-      date: d.date,
-      topic: topic?.label ?? "Unknown",
-      topic_slug: topic?.slug ?? "unknown",
-      value: d.mention_count,
-    };
-  });
+  const customSlugs = new Set(customTopics.map((t) => t.slug));
+  const points = await getDailyRiverScores();
+
+  return points
+    .filter((p) => customSlugs.has(p.topic_slug))
+    .map((p) => ({
+      date: p.date,
+      topic: p.topic_label,
+      topic_slug: p.topic_slug,
+      value: p.value,
+    }));
 }
 
 export async function getTrendingTopics(limit = 8): Promise<TrendScore[]> {
   if (!isSupabaseConfigured()) return mergeCustomTopicsIntoTrends(getTopTrends(limit), limit);
 
-  const supabase = getSupabase()!;
-  const { data } = await supabase
-    .from("trend_scores")
-    .select("*, topics(slug, label)")
-    .order("date", { ascending: false })
-    .limit(200);
+  const scores = await getComputedTrendScores();
+  if (!scores.length) return getTopTrends(limit);
 
-  if (!data?.length) return getTopTrends(limit);
+  const customSlugs = new Set((await listCustomTopics()).map((t) => t.slug));
 
-  const latest = new Map<string, TrendScore>();
-  for (const s of data) {
-    const topic = getJoinedTopic(s.topics);
-    if (!topic || latest.has(topic.slug)) continue;
-    latest.set(topic.slug, {
-      id: s.id,
-      topic_id: s.topic_id,
-      topic_slug: topic.slug,
-      topic_label: topic.label,
-      date: s.date,
-      velocity: s.velocity,
-      momentum: s.momentum,
-      persistence: s.persistence,
-      reach: s.reach,
-      sentiment: s.sentiment,
-      mention_count: s.mention_count,
-    });
-  }
-
-  return Array.from(latest.values())
-    .sort((a, b) => b.velocity - a.velocity)
+  return scores
+    .sort((a, b) => {
+      const aIsCustom = customSlugs.has(a.topic_slug);
+      const bIsCustom = customSlugs.has(b.topic_slug);
+      if (aIsCustom && !bIsCustom) return -1;
+      if (!aIsCustom && bIsCustom) return 1;
+      if (b.mention_count !== a.mention_count) return b.mention_count - a.mention_count;
+      return b.velocity - a.velocity;
+    })
     .slice(0, limit);
 }
 
@@ -155,15 +128,15 @@ export async function getInsights(): Promise<Insight[]> {
 }
 
 export async function getAllTopics(): Promise<Topic[]> {
-  if (!isSupabaseConfigured()) return mergeCustomTopicsList(seedTopics);
-
-  const supabase = getSupabase()!;
-  const { data } = await supabase.from("topics").select("*").order("label");
-  return data?.length ? data : seedTopics;
+  const { listTopics } = await import("@/lib/db/topics");
+  return listTopics();
 }
 
 export async function getStats() {
-  const trends = await getTrendingTopics(100);
+  const [trends, allTopics] = await Promise.all([
+    getTrendingTopics(100),
+    getAllTopics(),
+  ]);
   const totalMentions = trends.reduce((s, t) => s + t.mention_count, 0);
   const emerging = trends.filter((t) => t.velocity > 30).length;
   const avgSentiment = trends.length
@@ -171,7 +144,7 @@ export async function getStats() {
     : 0;
 
   return {
-    totalTopics: isSupabaseConfigured() ? trends.length : mergeCustomTopicsList(seedTopics).length,
+    totalTopics: allTopics.length,
     totalMentions,
     emergingTrends: emerging,
     avgSentiment,

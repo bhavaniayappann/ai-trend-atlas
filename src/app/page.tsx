@@ -6,6 +6,8 @@ import { InsightFeed } from "@/components/dashboard/InsightFeed";
 import { AddTopicForm } from "@/components/dashboard/AddTopicForm";
 import { getTrendingTopics, getInsights, getStats, getAllTopics } from "@/lib/db/queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const [trends, insights, stats, topics] = await Promise.all([
     getTrendingTopics(8),

@@ -3,6 +3,8 @@ import { Header } from "@/components/layout/Header";
 import { TopicGalaxy } from "@/components/galaxy/TopicGalaxy";
 import { getGalaxyData } from "@/lib/db/queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function GalaxyPage() {
   const data = await getGalaxyData();
 
@@ -10,7 +12,7 @@ export default async function GalaxyPage() {
     <AppShell>
       <Header
         title="Topic Galaxy"
-        description="Interactive map of technology trends and their relationships"
+        description="Your custom topics and how they relate"
       />
       <div className="flex-1">
         <TopicGalaxy data={data} />
